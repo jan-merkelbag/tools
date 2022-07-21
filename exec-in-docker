@@ -1,0 +1,123 @@
+#!/bin/bash
+function usage() {
+  echo "Usage: $(basename "${0}") [OPTION...] CMD [ARG...]"
+  echo
+  echo "Executes CMD with optional ARGs in Docker container."
+  echo
+  echo " -A, --docker-args=ARGS      Arguments to pass directly to Docker, like port forwarding."
+  echo " -h, --help                  Shows this help."
+  echo " -H, --home                  Mount home directory instead of current working directory."
+  echo " -i, --image=IMG             Use IMG as image to create the container from."
+  echo " -r, --root                  Set user and group ID to 0 in the container."
+  echo " -v, --verbose               Be verbose. Helps debugging this script."
+  echo
+  echo "Mandatory or optional arguments to long options are also mandatory or optional"
+  echo "for any corresponding short options."
+}
+
+VERBOSE=0
+function info() {
+  if [[ ${VERBOSE} -ne 0 ]]; then
+    echo "${@}"
+  fi
+}
+
+docker_image='debian:stable-slim'
+custom_args=
+mount_dir="$(pwd)"
+user_id="$(id -u)"
+group_id="$(id -g)"
+
+while [[ ${*} != "" ]]; do
+  switches=("${1}")
+  if [[ ${1} =~ ^-[0-9a-zA-Z]{2,} ]]; then
+    switches=()
+    for (( i=1; i<${#1}; i++ )); do
+      switches+=("-${1:$i:1}")
+    done
+  fi
+
+  for switch in "${switches[@]}"; do
+    case "${switch}" in
+    --)
+      shift
+      break 2
+      ;;
+    -A | --docker-args*)
+      arg="${switch}"
+      if [[ ${arg} == --docker-args=* ]]; then
+        custom_args="${arg#--docker-args=}"
+        arg='--docker-args'
+      elif [[ ${#} -gt 1 ]]; then
+        custom_args="${2}"
+        shift
+      else
+        echo "Option '${arg}' lacks its argument!"
+        exit 1
+      fi
+      if [[ ${custom_args} == "" ]]; then
+        echo "Bad argument for option '${arg}': ${custom_args}"
+        exit 1
+      fi
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    -H | --home) mount_dir="${HOME}" ;;
+    -i | --image*)
+      arg="${1}"
+      if [[ ${arg} == --image=* ]]; then
+        docker_image="${arg#--image=}"
+        arg='--image'
+      elif [[ ${#} -gt 1 ]]; then
+        docker_image="${2}"
+        shift
+      else
+        echo "Option '${arg}' lacks its argument!"
+        exit 1
+      fi
+      if [[ ${docker_image} == "" ]] || [[ ${docker_image} == -* ]]; then
+        echo "Bad argument for option '${arg}': ${docker_image}"
+        exit 1
+      fi
+      ;;
+    -r | --root)
+        user_id=0
+        group_id=0
+      ;;
+    -v | --verbose)
+      VERBOSE=1
+      ;;
+    -*)
+      echo "Unknown or invalid option detected: ${1}"
+      exit 1
+      ;;
+    *) break 2 ;;
+    esac
+  done
+  shift
+done
+
+if [[ ${#} -lt 1 ]]; then
+  echo 'Missing command!'
+  usage
+  exit 1
+fi
+
+info "Image: ${docker_image}"
+info "Mount: ${mount_dir}"
+info "UserID: ${user_id}"
+info "GroupID: ${group_id}"
+info "Command: ${@}"
+
+docker run \
+  ${custom_args} \
+  --rm \
+  --volume "${mount_dir}:${mount_dir}" \
+  --workdir "${mount_dir}" \
+  --user="${user_id}:${group_id}" \
+  --tty \
+  --interactive \
+  --entrypoint "${1}" "${docker_image}" "${@:2}"
+
