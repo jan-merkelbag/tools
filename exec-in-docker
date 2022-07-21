@@ -25,6 +25,7 @@ function info() {
 docker_image='debian:stable-slim'
 custom_args=
 mount_dir="$(pwd)"
+work_dir="${mount_dir}"
 user_id="$(id -u)"
 group_id="$(id -g)"
 
@@ -64,7 +65,10 @@ while [[ ${*} != "" ]]; do
       usage
       exit 0
       ;;
-    -H | --home) mount_dir="${HOME}" ;;
+    -H | --home)
+			mount_dir="${HOME}"
+			work_dir="$(pwd)"
+			;;
     -i | --image*)
       arg="${1}"
       if [[ ${arg} == --image=* ]]; then
@@ -115,7 +119,7 @@ docker run \
   ${custom_args} \
   --rm \
   --volume "${mount_dir}:${mount_dir}" \
-  --workdir "${mount_dir}" \
+  --workdir "${work_dir}" \
   --user="${user_id}:${group_id}" \
   --tty \
   --interactive \
