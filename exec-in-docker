@@ -15,9 +15,8 @@ function usage() {
   echo "for any corresponding short options."
 }
 
-VERBOSE=0
 function info() {
-  if [[ ${VERBOSE} -ne 0 ]]; then
+  if [[ -z ${VERBOSE} ]]; then
     echo "${@}"
   fi
 }
@@ -113,7 +112,7 @@ info "Image: ${docker_image}"
 info "Mount: ${mount_dir}"
 info "UserID: ${user_id}"
 info "GroupID: ${group_id}"
-info "Command: ${@}"
+info "Command: ${*}"
 
 docker run \
   ${custom_args} \

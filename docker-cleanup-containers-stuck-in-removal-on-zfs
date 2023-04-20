@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
 if [[ $(id -u) -ne 0 ]]; then
-	echo -e "\e[31mYou need to be root!\e[0m"
-	exit 1
+  echo -e "\e[31mYou need to be root!\e[0m"
+  exit 1
 fi
 
 # Source: https://github.com/moby/moby/issues/40132#issuecomment-826139573
 for container_id in $(docker container ls -qa --filter status=removing); do
-        zpool_object=$(docker container inspect --format='{{.GraphDriver.Data.Dataset}}' ${container_id})
-        zfs destroy -R "${zpool_object}"
-        zfs destroy -R "${zpool_object}-init"
-        zfs create "${zpool_object}"
-        zfs create "${zpool_object}-init"
-        docker container rm $container_id
+  zpool_object=$(docker container inspect --format='{{.GraphDriver.Data.Dataset}}' "${container_id}")
+  zfs destroy -R "${zpool_object}"
+  zfs destroy -R "${zpool_object}-init"
+  zfs create "${zpool_object}"
+  zfs create "${zpool_object}-init"
+  docker container rm "${container_id}"
 done
 
 #for container_id in $(docker container ls -qa --filter status=removing); do 
-#	zpool_object=$(docker container inspect --format='{{.GraphDriver.Data.Dataset}}' ${container_id})
-#	zfs create "${zpool_object}"
-#	zfs create "${zpool_object}-init"
-#	docker container rm $container_id
+#  zpool_object=$(docker container inspect --format='{{.GraphDriver.Data.Dataset}}' ${container_id})
+#  zfs create "${zpool_object}"
+#  zfs create "${zpool_object}-init"
+#  docker container rm "${container_id}"
 #done
+
