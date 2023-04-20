@@ -1,0 +1,48 @@
+#!/bin/bash
+BASE_IMAGE="debian:stable-slim"
+TARGET_IMAGE="sqlite:3"
+
+read -rd '' BUILD_INSTRUCTIONS << EOF
+FROM ${BASE_IMAGE}
+RUN apt-get update && apt-get dist-upgrade -y \
+ && apt-get install -y --no-install-recommends \
+    sqlite3
+EOF
+
+if [[ ${#} -lt 1 ]]; then
+  echo "Usage: $(basename "${0}") PATH"
+  echo
+  echo "PATH - Path to database file."
+  exit 1
+fi
+
+function build() {
+  if ! docker pull "${BASE_IMAGE}" > /dev/null 2>&1; then
+    echo "Failed to pull base image. Continuing anyways ..."
+  fi
+  local tmpDir
+  tmpDir="$(mktemp -d)"
+  echo "${BUILD_INSTRUCTIONS}" > "${tmpDir}/Dockerfile"
+  docker build -t "${TARGET_IMAGE}" "${tmpDir}"
+  rm -r "${tmpDir}"
+}
+
+function buildIfRequired() {
+  imageBuildTimestamp=$(date --date "$(docker image inspect "${TARGET_IMAGE}" --format '{{ .Created }}')" '+%s')
+  currentTimestamp=$(date --date '1 day ago' '+%s')
+
+  if [[ $(docker images -q "${TARGET_IMAGE}" 2> /dev/null) == '' ]] || [[ ${imageBuildTimestamp} -le ${currentTimestamp} ]]; then
+    build
+  fi
+}
+
+buildIfRequired
+
+WORK_DIR="$(realpath "$(dirname "${1}")")"
+docker run \
+  --rm --interactive --tty \
+  --name="sqlite3-$(date '+%F_%H-%M-%S')" \
+  --user="$(id -u):$(id -g)" \
+  --volume="${WORK_DIR}:${WORK_DIR}" \
+  --workdir="${WORK_DIR}" \
+  "${TARGET_IMAGE}" sqlite3 "$(basename "${1}")" "${@:2}"
