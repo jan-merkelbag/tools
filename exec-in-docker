@@ -115,7 +115,7 @@ info "GroupID: ${group_id}"
 info "Command: ${*}"
 
 docker run \
-  ${custom_args} \
+  "${custom_args}" \
   --rm \
   --volume "${mount_dir}:${mount_dir}" \
   --workdir "${work_dir}" \
@@ -123,4 +123,3 @@ docker run \
   --tty \
   --interactive \
   --entrypoint "${1}" "${docker_image}" "${@:2}"
-
