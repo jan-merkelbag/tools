@@ -23,7 +23,7 @@ function info() {
 }
 
 docker_image='debian:stable-slim'
-custom_args=
+custom_args=()
 mount_dir="$(pwd)"
 work_dir="${mount_dir}"
 user_id="$(id -u)"
@@ -47,17 +47,17 @@ while [[ ${*} != "" ]]; do
     -A | --docker-args*)
       arg="${switch}"
       if [[ ${arg} == --docker-args=* ]]; then
-        custom_args="${arg#--docker-args=}"
+        custom_args=("${arg#--docker-args=}")
         arg='--docker-args'
       elif [[ ${#} -gt 1 ]]; then
-        custom_args="${2}"
+        custom_args=("${2}")
         shift
       else
         echo "Option '${arg}' lacks its argument!"
         exit 1
       fi
-      if [[ ${custom_args} == "" ]]; then
-        echo "Bad argument for option '${arg}': ${custom_args}"
+      if (( ${#custom_args[@]} == 0 )); then
+        echo "Bad argument for option '${arg}': ${custom_args[*]}"
         exit 1
       fi
       ;;
@@ -111,12 +111,14 @@ fi
 
 info "Image: ${docker_image}"
 info "Mount: ${mount_dir}"
+info "WorkDir: ${work_dir}"
 info "UserID: ${user_id}"
 info "GroupID: ${group_id}"
 info "Command: ${*}"
+info "Custom ARGs: ${custom_args[*]}"
 
 docker run \
-  "${custom_args}" \
+  "${custom_args[@]}" \
   --rm \
   --volume "${mount_dir}:${mount_dir}" \
   --workdir "${work_dir}" \
