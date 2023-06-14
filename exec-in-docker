@@ -1,6 +1,6 @@
 #!/bin/bash
 function usage() {
-  echo "Usage: $(basename "${0}") [OPTION...] CMD [ARG...]"
+  echo "Usage: $(basename "${0}") [OPTION...] [--] CMD [ARG...]"
   echo
   echo "Executes CMD with optional ARGs in Docker container."
   echo
