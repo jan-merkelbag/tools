@@ -15,8 +15,9 @@ function usage() {
   echo "for any corresponding short options."
 }
 
+VERBOSE=0
 function info() {
-  if [[ -z ${VERBOSE} ]]; then
+  if [[ ${VERBOSE} -eq 1 ]]; then
     echo "${@}"
   fi
 }
