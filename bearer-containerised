@@ -1,0 +1,68 @@
+#!/bin/bash
+BASE_IMAGE="bearer/bearer:latest-amd64"
+TARGET_IMAGE="bearer/bearer:local"
+
+read -rd '' BUILD_INSTRUCTIONS << EOF
+FROM ${BASE_IMAGE}
+
+ARG GROUP_ID
+ARG GROUP_NAME
+ARG USER_ID
+ARG USER_NAME
+ARG USER_HOME
+
+USER 0:0
+
+RUN apt-get update && apt-get dist-upgrade -y
+RUN deluser --remove-home "\$(id -un 1000)" && echo 1000 | xargs -I{} awk -F: '\$3 == {}' /etc/group | cut -d: -f1 | xargs -n1 echo delgroup
+RUN addgroup --gid "\${GROUP_ID}" "\${GROUP_NAME}"
+RUN adduser --home "\${USER_HOME}" --uid "\${USER_ID}" --gid "\${GROUP_ID}" "\${USER_NAME}"
+
+USER \${USER_ID}:\${GROUP_ID}
+EOF
+
+if [[ ${#} -lt 1 ]]; then
+  echo "Usage: $(basename "${0}") PATH"
+  echo
+  echo "PATH - Path to database file."
+  exit 1
+fi
+
+function build() {
+  if ! docker pull "${BASE_IMAGE}" > /dev/null 2>&1; then
+    echo "Failed to pull base image. Continuing anyways ..."
+  fi
+  local tmpDir
+  tmpDir="$(mktemp -d)"
+  echo "${BUILD_INSTRUCTIONS}" > "${tmpDir}/Dockerfile"
+  docker build \
+    --build-arg GROUP_ID="$(id -g)" \
+    --build-arg GROUP_NAME="$(id -gn)" \
+    --build-arg USER_ID="$(id -u)" \
+    --build-arg USER_NAME="$(id -un)" \
+    --build-arg USER_HOME="${HOME}" \
+    --tag "${TARGET_IMAGE}" \
+    "${tmpDir}"
+  rm -r "${tmpDir}"
+}
+
+function buildIfRequired() {
+  imageBuildTimestamp=$(date --date "$(docker image inspect "${TARGET_IMAGE}" --format '{{ .Created }}')" '+%s')
+  currentTimestamp=$(date --date '1 day ago' '+%s')
+
+  if [[ $(docker images -q "${TARGET_IMAGE}" 2> /dev/null) == '' ]] || [[ ${imageBuildTimestamp} -le ${currentTimestamp} ]]; then
+    build
+  fi
+}
+
+buildIfRequired
+
+WORK_DIR="$(realpath "$(dirname "${1}")")"
+docker run \
+  --rm --interactive --tty \
+  --name="sqlite3-$(date '+%F_%H-%M-%S')" \
+  --user="$(id -u):$(id -g)" \
+  --volume="${HOME}:${HOME}" \
+  --volume="${WORK_DIR}:${WORK_DIR}" \
+  --workdir="${WORK_DIR}" \
+  "${TARGET_IMAGE}" "${@}"
